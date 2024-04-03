@@ -66,17 +66,17 @@ export class ConfigService {
     setInterval(this.fetchEthPrice, 1000 * 60 * 2);
   }
 
-  fetchEthPrice() {
-    axios
-      .get("https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD")
-      .then((res) => {
-        this.Prices.Eth = res.data.USD;
-      })
-      .catch((err) => {
-        console.error("Error caught in interval ETH Price:", err);
-        // Halt the server
-        process.exit(1);
-      });
+  async fetchEthPrice() {
+    try {
+      const res = await axios.get("https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
+      this.Prices.Eth = res.data.USD;
+    } catch (err) {
+      console.error("Error caught in interval ETH Price:", err);
+      // Halt the server
+      process.exit(1);
+    }
   }
 }
+
+
 
