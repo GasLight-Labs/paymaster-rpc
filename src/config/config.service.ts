@@ -54,16 +54,16 @@ export class ConfigService {
     // @ts-ignore
     this.publicClient = createPublicClient({
       transport: http(),
-      chain: chain,
+      chain: this.chain,
       batch: {
         multicall: { batchSize: 4096, wait: 200 },
       },
     });
-    this.account = privateKeyToAccount(process.env.PRIVATE_KEY as Address);
+    this.account = privateKeyToAccount(this.PrivateKey as Address);
     this.walletClient = createWalletClient({
       transport: http(),
-      chain: chain,
-      account: privateKeyToAccount(process.env.PRIVATE_KEY as Address),
+      chain: this.chain,
+      account: privateKeyToAccount(this.PrivateKey as Address),
     }) as any;
 
     this.bundlerClient = createBundlerClient({
@@ -86,6 +86,7 @@ export class ConfigService {
     }
   }
 }
+
 
 
 
