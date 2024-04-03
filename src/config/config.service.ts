@@ -63,7 +63,7 @@ export class ConfigService {
     });
 
     this.fetchEthPrice();
-    setInterval(this.fetchEthPrice, 1000 * 60 * 2);
+    setInterval(() => this.fetchEthPrice(), 1000 * 60 * 2);
   }
 
   async fetchEthPrice() {
@@ -77,6 +77,7 @@ export class ConfigService {
     }
   }
 }
+
 
 
 
