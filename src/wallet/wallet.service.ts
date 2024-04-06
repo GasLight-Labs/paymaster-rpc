@@ -6,8 +6,8 @@ import { ConfigService } from "src/config/config.service";
 export class WalletService {
   constructor(readonly configService: ConfigService) {}
 
-  async getErc20Balance(args: { tokenAddress: Address; account: Address }) {
-    return await this.configService.publicClient.readContract({
+  async getErc20Balance(args: { tokenAddress: Address; account: Address }, chainId: number) {
+    return await this.configService.publicClient(chainId).readContract({
       abi: erc20Abi,
       address: args.tokenAddress,
       functionName: "balanceOf",

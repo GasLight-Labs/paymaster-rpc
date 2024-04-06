@@ -93,10 +93,13 @@ export class JrpcService {
     await this.checkPaymasterApproval(userOp.sender, chainId);
     const gasInWei = this.calculateGasInWei(userOp);
     const gasInTokens = await this.calculateGasInErc20(gasInWei, chainId);
-    const bal = await this.walletService.getErc20Balance({
-      tokenAddress: this.configService.Contracts[chainId].Usdc,
-      account: userOp.sender,
-    });
+    const bal = await this.walletService.getErc20Balance(
+      {
+        tokenAddress: this.configService.Contracts[chainId].Usdc,
+        account: userOp.sender,
+      },
+      chainId,
+    );
     if (bal < gasInTokens) {
       throw new HttpException({ error: "Insufficient token balance for gas!" }, HttpStatus.BAD_REQUEST);
     }
