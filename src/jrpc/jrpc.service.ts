@@ -23,18 +23,18 @@ export class JrpcService {
     private readonly configService: ConfigService,
   ) {}
 
-  async getBlockNumber() {
-    const blockNumber = await this.configService.publicClient.getBlockNumber();
+  async getBlockNumber(chainId: number) {
+    const blockNumber = await this.configService.publicClient(chainId).getBlockNumber();
     return "0x" + blockNumber.toString(16);
   }
 
-  async getTokenExchangeRate() {
-    return parseUnits(String(this.configService.Prices.Eth), 6);
+  async getTokenExchangeRate(chainId: number) {
+    return parseUnits(String(this.configService.Prices[chainId]), 6);
   }
 
-  async estimateGasLimitsOfUserOp(userOp: IUserOp, isErc20Op: boolean) {
-    const paymasterData = await this.generatePaymasterData(userOp, isErc20Op);
-    const estimation = await this.configService.bundlerClient.estimateUserOperationGas({
+  async estimateGasLimitsOfUserOp(userOp: IUserOp, isErc20Op: boolean, chainId: number) {
+    const paymasterData = await this.generatePaymasterData(userOp, isErc20Op, chainId);
+    const estimation = await this.configService.bundlerClient(chainId).estimateUserOperationGas({
       // @ts-ignore
       userOperation: {
         sender: userOp.sender,
@@ -73,28 +73,28 @@ export class JrpcService {
     );
   }
 
-  async calculateGasInErc20(gasInWei: bigint) {
-    return BigInt(Number(formatUnits(gasInWei * (await this.getTokenExchangeRate()), 18)).toFixed());
+  async calculateGasInErc20(gasInWei: bigint, chainId: number) {
+    return BigInt(Number(formatUnits(gasInWei * (await this.getTokenExchangeRate(chainId)), 18)).toFixed());
   }
 
-  async checkPaymasterApproval(sender: Address) {
-    const approvedAmount = await this.configService.publicClient.readContract({
+  async checkPaymasterApproval(sender: Address, chainId: number) {
+    const approvedAmount = await this.configService.publicClient(chainId).readContract({
       abi: erc20Abi,
-      address: this.configService.Contracts.Usdc,
+      address: this.configService.Contracts[chainId].Usdc,
       functionName: "allowance",
-      args: [sender, this.configService.Contracts.Paymaster],
+      args: [sender, this.configService.Contracts[chainId].Paymaster],
     });
     if (approvedAmount < maxUint256) {
       throw new HttpException({ error: "Paymaster not approved!" }, HttpStatus.BAD_REQUEST);
     }
   }
 
-  async validateErc20Payment(userOp: IUserOp) {
-    await this.checkPaymasterApproval(userOp.sender);
+  async validateErc20Payment(userOp: IUserOp, chainId: number) {
+    await this.checkPaymasterApproval(userOp.sender, chainId);
     const gasInWei = this.calculateGasInWei(userOp);
-    const gasInTokens = await this.calculateGasInErc20(gasInWei);
+    const gasInTokens = await this.calculateGasInErc20(gasInWei, chainId);
     const bal = await this.walletService.getErc20Balance({
-      tokenAddress: this.configService.Contracts.Usdc,
+      tokenAddress: this.configService.Contracts[chainId].Usdc,
       account: userOp.sender,
     });
     if (bal < gasInTokens) {
@@ -102,13 +102,19 @@ export class JrpcService {
     }
   }
 
-  async getHash(userOp: UserOperation<"v0.6">, isErc20Op: boolean, exchangeRate: bigint) {
+  async getHash(userOp: UserOperation<"v0.6">, isErc20Op: boolean, exchangeRate: bigint, chainId: number) {
     const { validAfter, validUntil } = this.calcValidity();
-    const hash = await this.configService.publicClient.readContract({
+    const hash = await this.configService.publicClient(chainId).readContract({
       abi: VerifyPaymasterAbi,
-      address: this.configService.Contracts.Paymaster,
+      address: this.configService.Contracts[chainId].Paymaster,
       functionName: "getHash",
-      args: [userOp, validUntil, validAfter, isErc20Op ? this.configService.Contracts.Usdc : zeroAddress, exchangeRate],
+      args: [
+        userOp,
+        validUntil,
+        validAfter,
+        isErc20Op ? this.configService.Contracts[chainId].Usdc : zeroAddress,
+        exchangeRate,
+      ],
     });
     // const packedUserOp = encodeAbiParameters(
     //   parseAbiParameters(
@@ -151,12 +157,12 @@ export class JrpcService {
     return { validAfter, validUntil };
   }
 
-  async generatePaymasterData(userOp: UserOperation<"v0.6">, isErc20Op: boolean) {
-    const exchangeRate = isErc20Op ? await this.getTokenExchangeRate() : 0n; // Example exchange rate
+  async generatePaymasterData(userOp: UserOperation<"v0.6">, isErc20Op: boolean, chainId: number) {
+    const exchangeRate = isErc20Op ? await this.getTokenExchangeRate(chainId) : 0n; // Example exchange rate
     console.time("hash");
-    const { hash, validUntil, validAfter } = await this.getHash(userOp, isErc20Op, exchangeRate);
+    const { hash, validUntil, validAfter } = await this.getHash(userOp, isErc20Op, exchangeRate, chainId);
     console.timeEnd("hash");
-    const signature = await this.configService.walletClient.signMessage({
+    const signature = await this.configService.walletClient(chainId).signMessage({
       message: { raw: toBytes(hash) },
       account: this.configService.account,
     });
@@ -164,28 +170,28 @@ export class JrpcService {
     const extraData = encodeAbiParameters(parseAbiParameters("uint48, uint48, address, uint256"), [
       validUntil,
       validAfter,
-      isErc20Op ? this.configService.Contracts.Usdc : zeroAddress,
+      isErc20Op ? this.configService.Contracts[chainId].Usdc : zeroAddress,
       exchangeRate,
     ]);
     const paymasterAndData =
-      `${this.configService.Contracts.Paymaster}${extraData.slice(2)}${signature.slice(2)}` as Address;
+      `${this.configService.Contracts[chainId].Paymaster}${extraData.slice(2)}${signature.slice(2)}` as Address;
     return paymasterAndData;
   }
 
-  async signUserOP(argUserOp: IUserOp, isErc20Op: boolean = false) {
-    let userOp = await this.estimateGasLimitsOfUserOp(argUserOp, isErc20Op);
-    const paymasterAndData = await this.generatePaymasterData(userOp, isErc20Op);
+  async signUserOP(argUserOp: IUserOp, isErc20Op: boolean = false, chainId: number) {
+    let userOp = await this.estimateGasLimitsOfUserOp(argUserOp, isErc20Op, chainId);
+    const paymasterAndData = await this.generatePaymasterData(userOp, isErc20Op, chainId);
     userOp.paymasterAndData = paymasterAndData;
     return userOp;
   }
 
-  async sponsorUserOperation(argUserOp: [IUserOp, Address, { type: "erc20Token" | "ether" }]) {
+  async sponsorUserOperation(argUserOp: [IUserOp, Address, { type: "erc20Token" | "ether" }], chainId: number) {
     try {
       const isErc20Op = argUserOp[2].type === "erc20Token";
-      let userOp = await this.signUserOP(argUserOp[0], isErc20Op);
+      let userOp = await this.signUserOP(argUserOp[0], isErc20Op, chainId);
 
       if (isErc20Op) {
-        await this.validateErc20Payment(userOp);
+        await this.validateErc20Payment(userOp, chainId);
       }
       return {
         paymasterAndData: userOp.paymasterAndData,

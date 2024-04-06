@@ -15,70 +15,104 @@ import {
 } from "viem";
 import { arbitrum, polygonMumbai } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
-import { BundlerClient, createBundlerClient } from "permissionless";
+import { BundlerClient, createBundlerClient, ENTRYPOINT_ADDRESS_V06 } from "permissionless";
 import { EntryPointAbi, VerifyingPaymasterAbi } from "./abi";
 import axios from "axios";
 
 @Injectable()
 export class ConfigService {
-  // public Contracts = {
-  //   EntryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
-  //   Paymaster: "0x5E90A0F7455bEEbfa2dEF35e857E24a29ffe567F",
-  //   Usdc: "0x3870419Ba2BBf0127060bCB37f69A1b1C090992B",
-  // } as const;
-  // public BundlerUrl = `https://skandha-2ct5w3uvcq-uc.a.run.app/80001`;
-  // public chain = polygonMumbai;
-  public Contracts = {
-    EntryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
-    Paymaster: "0x75688705486405550239134Aa01e80E739f3b459",
-    Usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-  } as const;
-  public BundlerUrl = `https://skandha-2ct5w3uvcq-uc.a.run.app/42161`;
-  public chain = arbitrum;
-  public publicClient: PublicClient;
-  public walletClient: WalletClient<Transport, typeof this.chain, Account>;
+  public supportedChains = [arbitrum, polygonMumbai];
   public account: Account;
-  public bundlerClient: BundlerClient<typeof this.Contracts.EntryPoint, Chain>;
+  public Contracts = {
+    [arbitrum.id]: {
+      EntryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+      Paymaster: "0x75688705486405550239134Aa01e80E739f3b459",
+      Usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    },
+    [polygonMumbai.id]: {
+      EntryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+      Paymaster: "0x5E90A0F7455bEEbfa2dEF35e857E24a29ffe567F",
+      Usdc: "0x3870419Ba2BBf0127060bCB37f69A1b1C090992B",
+    },
+  } as const;
+  private BundlerUrl = {
+    [arbitrum.id]: `https://skandha-2ct5w3uvcq-uc.a.run.app/42161`,
+    [polygonMumbai.id]: `https://skandha-2ct5w3uvcq-uc.a.run.app/80001`,
+  };
+  private _publicClient: { [key in keyof typeof this.BundlerUrl]: PublicClient };
+  private _bundlerClient: {
+    [key in keyof typeof this.BundlerUrl]: BundlerClient<typeof ENTRYPOINT_ADDRESS_V06, Chain>;
+  };
+  private _walletClient: {
+    [key in keyof typeof this.BundlerUrl]: WalletClient<Transport, Chain, Account>;
+  };
   public Abis = {
     EntryPoint: EntryPointAbi,
     VerifyingPaymaster: VerifyingPaymasterAbi,
   };
   private PrivateKey: Address;
   public Prices = {
-    Eth: 4000,
+    [arbitrum.id]: 4000,
+    [polygonMumbai.id]: 1.5,
   };
+
+  publicClient(chainId: number) {
+    if (!this._publicClient[chainId]) {
+      const chain = this.supportedChains.find((c) => c.id === chainId);
+      if (!chain) throw new Error("Chain not found!");
+      this._publicClient[chainId] = createPublicClient({
+        transport: http(),
+        chain,
+        batch: {
+          multicall: { batchSize: 4096, wait: 200 },
+        },
+      });
+    }
+    return this._publicClient[chainId];
+  }
+  walletClient(chainId: number) {
+    if (!this._walletClient[chainId]) {
+      const chain = this.supportedChains.find((c) => c.id === chainId);
+      if (!chain) throw new Error("Chain not found!");
+      this._walletClient[chainId] = createWalletClient({
+        transport: http(),
+        chain,
+        account: this.account,
+      }) as any;
+    }
+    return this._walletClient[chainId];
+  }
+  bundlerClient(chainId: number) {
+    if (!this._bundlerClient[chainId]) {
+      if (!this.BundlerUrl[chainId]) throw new Error("Bundler not found!");
+      this._bundlerClient[chainId] = createBundlerClient({
+        transport: http(this.BundlerUrl[chainId]),
+        entryPoint: this.Contracts[chainId].EntryPoint,
+      });
+    }
+    return this._bundlerClient[chainId];
+  }
 
   constructor() {
     this.PrivateKey = process.env.PRIVATE_KEY as Address;
     if (!this.PrivateKey) throw new Error("Private key not found!");
-    // @ts-ignore
-    this.publicClient = createPublicClient({
-      transport: http(),
-      chain: this.chain,
-      batch: {
-        multicall: { batchSize: 4096, wait: 200 },
-      },
-    });
+
     this.account = privateKeyToAccount(this.PrivateKey as Address);
-    this.walletClient = createWalletClient({
-      transport: http(),
-      chain: this.chain,
-      account: privateKeyToAccount(this.PrivateKey as Address),
-    }) as any;
 
-    this.bundlerClient = createBundlerClient({
-      transport: http(this.BundlerUrl),
-      entryPoint: this.Contracts.EntryPoint,
-    });
-
+    // Price interval
     this.fetchEthPrice();
     setInterval(() => this.fetchEthPrice(), 1000 * 60 * 2);
   }
 
   async fetchEthPrice() {
     try {
-      const res = await axios.get("https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
-      this.Prices.Eth = res.data.USD;
+      let res = await axios.get("https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
+      const ethPrice = res.data.USD;
+      res = await axios.get("https://min-api.cryptocompare.com/data/price?fsym=MATIC&tsyms=USD");
+      const maticPrice = res.data.USD;
+
+      this.Prices[arbitrum.id] = ethPrice;
+      this.Prices[polygonMumbai.id] = maticPrice;
     } catch (err) {
       console.error("Error caught in interval ETH Price:", err);
       // Halt the server
@@ -86,9 +120,5 @@ export class ConfigService {
     }
   }
 }
-
-
-
-
 
 
