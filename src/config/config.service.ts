@@ -23,6 +23,7 @@ import axios from "axios";
 export class ConfigService {
   public supportedChains = [arbitrum, polygonMumbai];
   public account: Account;
+  public jwtSecret: string;
   public Contracts = {
     [arbitrum.id]: {
       EntryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
@@ -95,7 +96,8 @@ export class ConfigService {
 
   constructor() {
     this.PrivateKey = process.env.PRIVATE_KEY as Address;
-    if (!this.PrivateKey) throw new Error("Private key not found!");
+    this.jwtSecret = process.env.JWT_SECRET;
+    if (!this.PrivateKey || !this.jwtSecret) throw new Error("Env var not found!");
 
     this.account = privateKeyToAccount(this.PrivateKey as Address);
 
