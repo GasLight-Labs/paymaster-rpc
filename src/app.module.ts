@@ -1,15 +1,17 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { JrpcModule } from './jrpc/jrpc.module';
-import { WalletService } from './wallet/wallet.service';
-import { ConfigModule } from './config/config.module';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
+import { Module } from "@nestjs/common";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { JrpcModule } from "./jrpc/jrpc.module";
+import { WalletService } from "./wallet/wallet.service";
+import { ConfigModule } from "./config/config.module";
+import { AuthModule } from "./auth/auth.module";
+import { UsersModule } from "./users/users.module";
+import { MongooseModule } from "@nestjs/mongoose";
 
 @Module({
-  imports: [JrpcModule, ConfigModule, AuthModule, UsersModule],
+  imports: [MongooseModule.forRoot(process.env.MONGO_URI), JrpcModule, ConfigModule, AuthModule, UsersModule],
   controllers: [AppController],
   providers: [AppService, WalletService],
 })
 export class AppModule {}
+
