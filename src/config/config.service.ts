@@ -18,9 +18,23 @@ import { privateKeyToAccount } from "viem/accounts";
 import { BundlerClient, createBundlerClient, ENTRYPOINT_ADDRESS_V06 } from "permissionless";
 import { EntryPointAbi, VerifyingPaymasterAbi } from "./abi";
 import axios from "axios";
+import { Issuer } from "openid-client";
 
 @Injectable()
 export class ConfigService {
+  public readonly supportedOidcClients = ["google", "github"] as const;
+  public readonly oidcIssuer = {
+    google: "https://accounts.google.com",
+    github: "https://token.actions.githubusercontent.com",
+  };
+  public readonly oidcClientIds = {
+    google: process.env.OAUTH2_GOOGLE_CLIENT_ID,
+    github: process.env.OAUTH2_GITHUB_CLIENT_ID,
+  };
+  public readonly oidcClientSecrets = {
+    google: process.env.OAUTH2_GOOGLE_CLIENT_SECRET,
+    github: process.env.OAUTH2_GITHUB_CLIENT_SECRET,
+  };
   public supportedChains = [arbitrum, polygonMumbai];
   public account: Account;
   public jwtSecret: string;
@@ -106,6 +120,15 @@ export class ConfigService {
     setInterval(() => this.fetchEthPrice(), 1000 * 60 * 2);
   }
 
+  public async buildOpenIdClient(clientId: (typeof this.supportedOidcClients)[number]) {
+    const TrustIssuer = await Issuer.discover(`${this.oidcIssuer[clientId]}/.well-known/openid-configuration`);
+    const client = new TrustIssuer.Client({
+      client_id: this.oidcClientIds[clientId],
+      client_secret: this.oidcClientSecrets[clientId],
+    });
+    return client;
+  }
+
   async fetchEthPrice() {
     try {
       let res = await axios.get("https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
@@ -122,5 +145,7 @@ export class ConfigService {
     }
   }
 }
+
+
 
 
