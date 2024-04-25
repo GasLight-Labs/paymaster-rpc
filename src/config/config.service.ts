@@ -39,13 +39,16 @@ export class ConfigService {
     [arbitrum.id]: `https://skandha-2ct5w3uvcq-uc.a.run.app/42161`,
     [polygonMumbai.id]: `https://skandha-2ct5w3uvcq-uc.a.run.app/80001`,
   };
-  private _publicClient: { [key in keyof typeof this.BundlerUrl]: PublicClient };
+  // @ts-expect-error
+  private _publicClient: { [key in keyof typeof this.BundlerUrl]: PublicClient } = {};
+  // @ts-expect-error
   private _bundlerClient: {
     [key in keyof typeof this.BundlerUrl]: BundlerClient<typeof ENTRYPOINT_ADDRESS_V06, Chain>;
-  };
+  } = {};
+  // @ts-expect-error
   private _walletClient: {
     [key in keyof typeof this.BundlerUrl]: WalletClient<Transport, Chain, Account>;
-  };
+  } = {};
   public Abis = {
     EntryPoint: EntryPointAbi,
     VerifyingPaymaster: VerifyingPaymasterAbi,
@@ -120,5 +123,3 @@ export class ConfigService {
     }
   }
 }
-
-
