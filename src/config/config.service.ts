@@ -22,18 +22,15 @@ import { Issuer } from "openid-client";
 
 @Injectable()
 export class ConfigService {
-  public readonly supportedOidcClients = ["google", "github"] as const;
+  public readonly supportedOidcClients = ["google"] as const;
   public readonly oidcIssuer = {
     google: "https://accounts.google.com",
-    github: "https://token.actions.githubusercontent.com",
   };
   public readonly oidcClientIds = {
     google: process.env.OAUTH2_GOOGLE_CLIENT_ID,
-    github: process.env.OAUTH2_GITHUB_CLIENT_ID,
   };
   public readonly oidcClientSecrets = {
     google: process.env.OAUTH2_GOOGLE_CLIENT_SECRET,
-    github: process.env.OAUTH2_GITHUB_CLIENT_SECRET,
   };
   public supportedChains = [arbitrum, polygonMumbai];
   public account: Account;
@@ -145,7 +142,3 @@ export class ConfigService {
     }
   }
 }
-
-
-
-

@@ -11,7 +11,7 @@ import { ConfigService } from "src/config/config.service";
 import { OidcStrategy } from "./strategy/oidc.strategy";
 import { SessionSerializer } from "./serializer/session.serializer";
 
-const OidcStrategyFactory = (provider: "google" | "github") => ({
+const OidcStrategyFactory = (provider: "google") => ({
   provide: `${provider}OidcStrategy`,
   useFactory: async (configService: ConfigService) => {
     const client = await configService.buildOpenIdClient(provider); // secret sauce! build the dynamic client before injecting it into the strategy for use in the constructor super call.
