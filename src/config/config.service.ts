@@ -10,8 +10,6 @@ import {
   Client,
   Transport,
   Chain,
-  createClient,
-  erc20Abi,
 } from "viem";
 import { arbitrum, polygonMumbai } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
@@ -21,7 +19,7 @@ import axios from "axios";
 
 @Injectable()
 export class ConfigService {
-  public supportedChains = [arbitrum, polygonMumbai];
+  public supportedChains = [arbitrum];
   public account: Account;
   public Contracts = {
     [arbitrum.id]: {
@@ -29,15 +27,9 @@ export class ConfigService {
       Paymaster: "0x75688705486405550239134Aa01e80E739f3b459",
       Usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     },
-    [polygonMumbai.id]: {
-      EntryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
-      Paymaster: "0x5E90A0F7455bEEbfa2dEF35e857E24a29ffe567F",
-      Usdc: "0x3870419Ba2BBf0127060bCB37f69A1b1C090992B",
-    },
   } as const;
   private BundlerUrl = {
-    [arbitrum.id]: `https://skandha-2ct5w3uvcq-uc.a.run.app/42161`,
-    [polygonMumbai.id]: `https://skandha-2ct5w3uvcq-uc.a.run.app/80001`,
+    [arbitrum.id]: `https://bundler-293f2fe8c150.herokuapp.com`,
   };
   // @ts-expect-error
   private _publicClient: { [key in keyof typeof this.BundlerUrl]: PublicClient } = {};
@@ -56,7 +48,6 @@ export class ConfigService {
   private PrivateKey: Address;
   public Prices = {
     [arbitrum.id]: 4000,
-    [polygonMumbai.id]: 1.5,
   };
 
   publicClient(chainId: number) {
@@ -111,11 +102,8 @@ export class ConfigService {
     try {
       let res = await axios.get("https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD");
       const ethPrice = res.data.USD;
-      res = await axios.get("https://min-api.cryptocompare.com/data/price?fsym=MATIC&tsyms=USD");
-      const maticPrice = res.data.USD;
 
       this.Prices[arbitrum.id] = ethPrice;
-      this.Prices[polygonMumbai.id] = maticPrice;
     } catch (err) {
       console.error("Error caught in interval ETH Price:", err);
       // Halt the server

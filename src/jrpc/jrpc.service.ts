@@ -77,20 +77,19 @@ export class JrpcService {
     return BigInt(Number(formatUnits(gasInWei * (await this.getTokenExchangeRate(chainId)), 18)).toFixed());
   }
 
-  async checkPaymasterApproval(sender: Address, chainId: number) {
+  async checkPaymasterApproval(sender: Address, tokenAmount: bigint, chainId: number) {
     const approvedAmount = await this.configService.publicClient(chainId).readContract({
       abi: erc20Abi,
       address: this.configService.Contracts[chainId].Usdc,
       functionName: "allowance",
       args: [sender, this.configService.Contracts[chainId].Paymaster],
     });
-    if (approvedAmount < maxUint256) {
+    if (approvedAmount < tokenAmount) {
       throw new HttpException({ error: "Paymaster not approved!" }, HttpStatus.BAD_REQUEST);
     }
   }
 
   async validateErc20Payment(userOp: IUserOp, chainId: number) {
-    await this.checkPaymasterApproval(userOp.sender, chainId);
     const gasInWei = this.calculateGasInWei(userOp);
     const gasInTokens = await this.calculateGasInErc20(gasInWei, chainId);
     const bal = await this.walletService.getErc20Balance(
@@ -100,6 +99,7 @@ export class JrpcService {
       },
       chainId,
     );
+    await this.checkPaymasterApproval(userOp.sender, gasInTokens, chainId);
     if (bal < gasInTokens) {
       throw new HttpException({ error: "Insufficient token balance for gas!" }, HttpStatus.BAD_REQUEST);
     }
