@@ -13,21 +13,25 @@ import {
 } from "viem";
 import { arbitrum, polygonMumbai } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
-import { BundlerClient, createBundlerClient, ENTRYPOINT_ADDRESS_V06 } from "permissionless";
+import { BundlerClient, createBundlerClient, ENTRYPOINT_ADDRESS_V07 } from "permissionless";
 import { EntryPointAbi, VerifyingPaymasterAbi } from "./abi";
 import axios from "axios";
+import { ENTRYPOINT_ADDRESS_V07_TYPE } from "permissionless/_types/types";
 
 @Injectable()
 export class ConfigService {
   public supportedChains = [arbitrum];
   public account: Account;
-  public Contracts = {
+  public Contracts: {
+    [key: number]: { EntryPoint: Address; VerifyingPaymaster: Address; ERC20Paymaster: Address; Usdc: Address };
+  } = {
     [arbitrum.id]: {
-      EntryPoint: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
-      Paymaster: "0x75688705486405550239134Aa01e80E739f3b459",
+      EntryPoint: ENTRYPOINT_ADDRESS_V07,
+      VerifyingPaymaster: "0x1098Bef00c53Ab3e53329C4221F7Dd39eeC73058",
+      ERC20Paymaster: "0x6704c15a9ff4baf50b44f4652851f848b3bffdc4",
       Usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     },
-  } as const;
+  };
   private BundlerUrl = {
     [arbitrum.id]: `https://bundler-293f2fe8c150.herokuapp.com`,
   };
@@ -35,7 +39,7 @@ export class ConfigService {
   private _publicClient: { [key in keyof typeof this.BundlerUrl]: PublicClient } = {};
   // @ts-expect-error
   private _bundlerClient: {
-    [key in keyof typeof this.BundlerUrl]: BundlerClient<typeof ENTRYPOINT_ADDRESS_V06, Chain>;
+    [key in keyof typeof this.BundlerUrl]: BundlerClient<typeof ENTRYPOINT_ADDRESS_V07, Chain>;
   } = {};
   // @ts-expect-error
   private _walletClient: {
@@ -76,11 +80,12 @@ export class ConfigService {
     }
     return this._walletClient[chainId];
   }
-  bundlerClient(chainId: number) {
+  bundlerClient(chainId: number): BundlerClient<ENTRYPOINT_ADDRESS_V07_TYPE, Chain> {
     if (!this._bundlerClient[chainId]) {
       if (!this.BundlerUrl[chainId]) throw new Error("Bundler not found!");
       this._bundlerClient[chainId] = createBundlerClient({
         transport: http(this.BundlerUrl[chainId]),
+        // @ts-ignore
         entryPoint: this.Contracts[chainId].EntryPoint,
       });
     }
