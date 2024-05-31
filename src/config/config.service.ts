@@ -7,11 +7,10 @@ import {
   WalletClient,
   Address,
   Account,
-  Client,
   Transport,
   Chain,
 } from "viem";
-import { arbitrum, polygonMumbai } from "viem/chains";
+import { arbitrum } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { BundlerClient, createBundlerClient, ENTRYPOINT_ADDRESS_V07 } from "permissionless";
 import { EntryPointAbi, VerifyingPaymasterAbi } from "./abi";
@@ -23,12 +22,17 @@ export class ConfigService {
   public supportedChains = [arbitrum];
   public account: Account;
   public Contracts: {
-    [key: number]: { EntryPoint: Address; VerifyingPaymaster: Address; ERC20Paymaster: Address; Usdc: Address };
+    [key: number]: {
+      EntryPoint: Address;
+      // VerifyingPaymaster: Address;
+      // ERC20Paymaster: Address;
+      Usdc: Address;
+      UniversalPaymaster: Address;
+    };
   } = {
     [arbitrum.id]: {
       EntryPoint: ENTRYPOINT_ADDRESS_V07,
-      VerifyingPaymaster: "0x1098Bef00c53Ab3e53329C4221F7Dd39eeC73058",
-      ERC20Paymaster: "0x6704c15a9ff4baf50b44f4652851f848b3bffdc4",
+      UniversalPaymaster: "0xDACDA34b8b3d9dF839F14e87699e594329FD0a83",
       Usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     },
   };

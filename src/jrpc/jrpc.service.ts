@@ -6,26 +6,14 @@ import {
   encodeAbiParameters,
   erc20Abi,
   formatUnits,
-  maxUint256,
   parseAbiParameters,
   parseUnits,
   toBytes,
-  zeroAddress,
 } from "viem";
-import VerifyPaymasterAbi from "../config/abi/VerifyingPaymaster";
-import ERC20PaymasterAbi from "../config/abi/ERC20Paymaster";
+import UniversalPaymasterAbi from "../config/abi/UniversalPaymaster";
 import { UserOperation, getPackedUserOperation } from "permissionless";
 import { ConfigService } from "src/config/config.service";
-import {
-  unpackPaymasterAndData,
-  getPaymasterAndData,
-  getGasLimits,
-  getAccountGasLimits,
-  getInitCode,
-  IUserOp,
-  IUserOpSerialized,
-} from "src/types/erc4337";
-import { VerifyingPaymasterAbi } from "src/config/abi";
+import { IUserOp, IUserOpSerialized } from "src/types/erc4337";
 
 @Injectable()
 export class JrpcService {
@@ -117,7 +105,7 @@ export class JrpcService {
       abi: erc20Abi,
       address: this.configService.Contracts[chainId].Usdc,
       functionName: "allowance",
-      args: [sender, this.configService.Contracts[chainId].ERC20Paymaster],
+      args: [sender, this.configService.Contracts[chainId].UniversalPaymaster],
     });
     if (approvedAmount < tokenAmount) {
       throw new HttpException({ error: "Paymaster not approved!" }, HttpStatus.BAD_REQUEST);
@@ -144,21 +132,13 @@ export class JrpcService {
   async getHash(userOp: IUserOp, isErc20Op: boolean, validUntil: number, validAfter: number, chainId: number) {
     console.log("getting hash...");
     let hash = "0x";
-    if (isErc20Op) {
-      hash = await this.configService.publicClient(chainId).readContract({
-        abi: ERC20PaymasterAbi,
-        address: this.configService.Contracts[chainId].ERC20Paymaster,
-        functionName: "getHash",
-        // TODO: change token limit last arg
-        args: [getPackedUserOperation(userOp), validUntil, validAfter, maxUint256],
-      });
-    } else
-      hash = await this.configService.publicClient(chainId).readContract({
-        abi: VerifyingPaymasterAbi,
-        address: this.configService.Contracts[chainId].VerifyingPaymaster,
-        functionName: "getHash",
-        args: [getPackedUserOperation(userOp), validUntil, validAfter],
-      });
+
+    hash = await this.configService.publicClient(chainId).readContract({
+      abi: UniversalPaymasterAbi,
+      address: this.configService.Contracts[chainId].UniversalPaymaster,
+      functionName: "getHash",
+      args: [getPackedUserOperation(userOp), validUntil, validAfter],
+    });
     console.log("hash...");
     // const packedUserOp = encodeAbiParameters(
     //   parseAbiParameters(
@@ -228,9 +208,7 @@ export class JrpcService {
     // })}${signature.slice(2)}`;
 
     return {
-      paymaster: isErc20Op
-        ? this.configService.Contracts[chainId].ERC20Paymaster
-        : this.configService.Contracts[chainId].VerifyingPaymaster,
+      paymaster: this.configService.Contracts[chainId].UniversalPaymaster,
       paymasterVerificationGasLimit: userOp.paymasterVerificationGasLimit,
       paymasterPostOpGasLimit: userOp.paymasterPostOpGasLimit,
       paymasterData: isErc20Op ? undefined : (`${extraData}${signature.slice(2)}` as Hex),
